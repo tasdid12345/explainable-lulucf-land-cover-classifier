@@ -4,6 +4,28 @@ Fix: analysis.py now catches the HTTP error and falls back to the OpenML copy of
 
 Requirements: added openml (allowed) and scipy (allowed, previously implicit). Run with `python analysis.py`; it writes results.json and figures/macro_f1_comparison.png.
 
+## Results (latest run)
+
+On the public UCI Statlog (Landsat Satellite) dataset, a soft-gated mixture-of-experts stand-in (not your method) reached 0.854 macro-F1 on the held-out test set, while a class-balanced LightGBM with CV grid search and sigmoid calibration reached 0.903 (single split, seeds 42-44; worst-class recall rose from 0.48 to 0.68).
+
+| Metric | Value |
+|---|---|
+| baseline_score | 0.8537 |
+| improved_score | 0.9031 |
+| improvement | 0.04939 |
+| baseline_score_std | 0.002333 |
+| improved_score_std | 0.002271 |
+| baseline_f1 | 0.8537 |
+| improved_f1 | 0.9031 |
+| baseline_accuracy | 0.8841 |
+| improved_accuracy | 0.9181 |
+| baseline_worst_class_recall | 0.484 |
+| improved_worst_class_recall | 0.6755 |
+
+Run on 2026-10-22. Full output: [results.json](results.json) · [run.log](run.log)
+
+Notes: Stand-in dataset, not the paper's LULUCF data; the paper's MoE architecture is unspecified so the baseline is a generic approximation. Test set used only once for final evaluation. Training subsampled only if above 200,000 rows (not triggered here). Results reflect this single dataset and split.
+
 ## Reference
 
 This project is motivated by the following paper:
