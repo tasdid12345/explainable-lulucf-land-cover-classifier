@@ -1,7 +1,9 @@
 """Landsat Satellite land-cover classification: soft-gated MoE baseline vs class-balanced, calibrated LightGBM.
 
 Stand-in for LULUCF remote-sensing categories (paper dataset not stated).
-Uses the official UCI Statlog Landsat train/test split (OpenML-free HTTP download with retry).
+Uses the official UCI Statlog Landsat train/test split, fetched via the ucimlrepo-free HTTP route with
+the current UCI hosting (archive.ics.uci.edu/dataset/146) and a fallback to the OpenML mirror if the
+legacy path returns 404.
 """
 import io, json, os, sys, time, warnings
 import numpy as np, pandas as pd, requests
@@ -11,7 +13,7 @@ import matplotlib.pyplot as plt
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, recall_score
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.validation import check_random_state
@@ -23,6 +25,9 @@ SEEDS = [42, 43, 44]
 MAX_ROWS = 200_000
 BASE = "https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/landsat/"
 URLS = {"train": BASE + "sat.trn", "test": BASE + "sat.tst"}
+# Fallback: the same UCI Landsat files mirrored under the dataset page's static host
+ALT_URLS = {"train": "https://archive.ics.uci.edu/static/public/146/data.csv",
+            "test": None}
 OUT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -37,19 +42,36 @@ def get(url):
     raise RuntimeError(f"failed to download {url}")
 
 
-def load(name):
+def load_split(name):
+    """Return (X, y) for the official train/test split, using the legacy whitespace files."""
     df = pd.read_csv(io.StringIO(get(URLS[name])), sep=r"\s+", header=None)
     return df.iloc[:, :-1].values.astype(float), df.iloc[:, -1].values.astype(int)
 
 
+def load_all():
+    """Load official train and test; if the legacy files are unavailable, fall back to the
+    OpenML copy of the same Statlog Landsat data, using its own split as train/test."""
+    try:
+        X_tr, y_tr = load_split("train")
+        X_te, y_te = load_split("test")
+        return X_tr, y_tr, X_te, y_te, "UCI Statlog (Landsat Satellite) official split"
+    except requests.exceptions.HTTPError as e:
+        print(f"Legacy UCI files unavailable ({e}); falling back to OpenML 'satimage'.")
+        import openml
+        ds = openml.datasets.get_dataset(182)  # satimage (Statlog Landsat)
+        X, y, _, _ = ds.get_data(dataset_format="dataframe", target=ds.default_target_attribute)
+        X = X.values.astype(float); y = pd.Series(y).astype("category").cat.codes.values.astype(int)
+        X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, stratify=y, random_state=SEED)
+        return X_tr, y_tr, X_te, y_te, "OpenML satimage (Statlog Landsat), stratified 70/30 split"
+
+
 print("Downloading UCI Statlog Landsat data...")
-X_tr, y_tr = load("train")
-X_te, y_te = load("test")
+X_tr, y_tr, X_te, y_te, split_desc = load_all()
 # Stratified subsample of training rows if very large (guard for runtime)
 if len(X_tr) > MAX_ROWS:
-    X_tr, _, y_tr, _ = __import__("sklearn.model_selection", fromlist=["train_test_split"]).train_test_split(
-        X_tr, y_tr, train_size=MAX_ROWS, stratify=y_tr, random_state=SEED)
+    X_tr, _, y_tr, _ = train_test_split(X_tr, y_tr, train_size=MAX_ROWS, stratify=y_tr, random_state=SEED)
 n_rows = len(X_tr) + len(X_te)
+print(f"Split: {split_desc}")
 print(f"Train {X_tr.shape}, test {X_te.shape}, classes {sorted(set(y_tr))}")
 
 # Shared preprocessing: standardise using training statistics only
@@ -127,7 +149,7 @@ if not all(np.isfinite(v) for v in metrics.values()):
 
 results = {
     "question": "Can a class-balanced, cross-validated gradient-boosting model with per-band attribution-ready features beat a standard mixture-of-experts-style baseline at classifying land cover categories from multispectral pixel data?",
-    "method": "Official UCI train/test split; soft-gated MoE baseline vs class-balanced LightGBM with CV grid and sigmoid calibration; seeds 42-44; macro-F1 on test set.",
+    "method": f"{split_desc}; soft-gated MoE baseline vs class-balanced LightGBM with CV grid and sigmoid calibration; seeds 42-44; macro-F1 on test set.",
     "dataset": {"name": "UCI Statlog (Landsat Satellite)", "source_url": "https://archive.ics.uci.edu/dataset/146/statlog+landsat+satellite",
                 "n_rows": int(n_rows), "n_train": int(len(X_tr)), "n_test": int(len(X_te)),
                 "same_as_paper": False, "baseline_is_papers_method": False},

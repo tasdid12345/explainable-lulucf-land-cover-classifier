@@ -1,23 +1,8 @@
-# Class-Balanced LightGBM vs Mixture-of-Experts Baseline for Land-Cover Classification
+The UCI legacy URL for the Statlog Landsat train/test files (sat.trn, sat.tst) returned 404, so analysis.py crashed before producing results.json.
 
-Land-use and land-use change categories (LULUCF) are increasingly identified from satellite imagery, and the paper "Deep Learning–Based Identification of LULUCF Categories Using a Mixture of Experts Architecture and Remote Sensing Data" (2026) proposes a mixture-of-experts network for this task. This experiment asks whether a simpler, class-balanced, cross-validated gradient-boosting model with calibrated probabilities can match or beat a standard soft-gated mixture-of-experts stand-in on multispectral pixel data.
+Fix: analysis.py now catches the HTTP error and falls back to the OpenML copy of the same Statlog Landsat (satimage) data, using a stratified 70/30 split with seed 42. The baseline (soft-gated MoE), the improved model (class-balanced LightGBM with CV grid and sigmoid calibration), the seeds (42-44), the shared evaluation and the macro-F1 metric are unchanged. Because the split differs in the fallback case, the results describe that split and are not directly comparable to the official UCI split.
 
-**Question:** Can a class-balanced, cross-validated gradient-boosting model with per-band attribution-ready features beat a standard mixture-of-experts-style baseline at classifying land cover categories from multispectral pixel data?
-
-**Dataset:** UCI Statlog (Landsat Satellite) — 6 spectral bands from 3x3 pixel neighbourhoods, 6 land-cover classes, official train/test split. This is a public stand-in dataset, not the paper's own LULUCF data.
-
-**Baseline:** soft-gated mixture of four small MLP experts with a logistic-regression gating network.
-
-**Improved model:** class-balanced LightGBM with a small cross-validated grid search on the training set and sigmoid probability calibration, using the same standardised inputs.
-
-**How to run**
-
-```
-pip install -r requirements.txt
-python analysis.py
-```
-
-**Results:** results are written to `results.json` (and a chart to `figures/`).
+Requirements: added openml (allowed) and scipy (allowed, previously implicit). Run with `python analysis.py`; it writes results.json and figures/macro_f1_comparison.png.
 
 ## Reference
 
