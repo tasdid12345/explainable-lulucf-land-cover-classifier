@@ -1,0 +1,31 @@
+{
+  "question": "Can a class-balanced, cross-validated gradient-boosting model with per-band attribution-ready features beat a standard mixture-of-experts-style baseline at classifying land cover categories from multispectral pixel data?",
+  "method": "OpenML satimage (Statlog Landsat), stratified 70/30 split; soft-gated MoE baseline vs class-balanced LightGBM with CV grid and sigmoid calibration; seeds 42-44; macro-F1 on test set.",
+  "dataset": {
+    "name": "UCI Statlog (Landsat Satellite)",
+    "source_url": "https://archive.ics.uci.edu/dataset/146/statlog+landsat+satellite",
+    "n_rows": 6430,
+    "n_train": 4501,
+    "n_test": 1929,
+    "same_as_paper": false,
+    "baseline_is_papers_method": false
+  },
+  "metric_name": "macro_f1",
+  "higher_is_better": true,
+  "baseline": "Soft-gated mixture of 4 small MLP experts with logistic-regression gating (scikit-learn stand-in for MoE).",
+  "improved": "Class-balanced LightGBM with 3-fold CV grid search on training data and sigmoid probability calibration, same standardised inputs.",
+  "metrics": {
+    "baseline_score": 0.8536729218166279,
+    "improved_score": 0.903062682985568,
+    "improvement": 0.049389761168940116,
+    "baseline_score_std": 0.002332921717737947,
+    "improved_score_std": 0.00227114499286939,
+    "baseline_f1": 0.8536729218166279,
+    "improved_f1": 0.903062682985568,
+    "baseline_accuracy": 0.8840504579229308,
+    "improved_accuracy": 0.9180922757905651,
+    "baseline_worst_class_recall": 0.48404255319148937,
+    "improved_worst_class_recall": 0.6755319148936171
+  },
+  "notes": "Stand-in dataset, not the paper's LULUCF data; the paper's MoE architecture is unspecified so the baseline is a generic approximation. Test set used only once for final evaluation. Training subsampled only if above 200,000 rows (not triggered here). Results reflect this single dataset and split."
+}
